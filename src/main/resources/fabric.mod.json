@@ -5,22 +5,17 @@
 	"name": "Chat Binds",
 	"description": "Bind chat messages and commands to a key.",
 	"authors": [
-		"Ryhon"
+		"Ryhon", "Jvkeh"
 	],
-	"contact": {
-		"homepage": "https://ryhon.xyz/",
-		"sources": "https://github.com/Ryhon0/ChatBinds",
-		"issues": "https://github.com/Ryhon0/ChatBinds/issues"
-	},
 	"license": "GPL-3.0",
 	"icon": "assets/chat-binds/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"main": [
-			"xyz.ryhon.chatbinds.ChatBinds"
+			"xyz.jvkeh.chatbinds.ChatBinds"
 		],
 		"modmenu":[
-			"xyz.ryhon.chatbinds.ModMenuAPIImpl"
+			"xyz.jvkeh.chatbinds.ModMenuAPIImpl"
 		]
 	},
 	"mixins": [
@@ -28,25 +23,12 @@
 	],
 	"accessWidener": "chatbinds.accesswidener",
 	"depends": {
-		"fabricloader": ">=0.15.0",
-		"minecraft": "~1.20.4",
-		"java": ">=17",
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
 		"fabric-api": "*"
 	},
 	"suggests": {
 		"another-mod": "*"
-	},
-	"custom":
-	{
-		"modmenu":
-		{
-			"links":
-			{
-				"modmenu.donate": "https://github.com/sponsors/Ryhon0",
-				"modmenu.modrinth": "https://modrinth.com/datapack/ChatBinds",
-				"modmenu.github_releases": "https://github.com/Ryhon0/ChatBinds/releases",
-				"modmenu.twitter": "https://twitter.com/RyhonDev"
-			}
-		}
 	}
 }

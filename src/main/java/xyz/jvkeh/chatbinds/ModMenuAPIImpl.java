@@ -1,4 +1,4 @@
-package xyz.ryhon.chatbinds;
+package xyz.jvkeh.chatbinds;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;

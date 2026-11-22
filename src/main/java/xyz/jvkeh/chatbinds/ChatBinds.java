@@ -1,4 +1,4 @@
-package xyz.ryhon.chatbinds;
+package xyz.jvkeh.chatbinds;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;

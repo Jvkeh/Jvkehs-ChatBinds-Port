@@ -1,4 +1,4 @@
-package xyz.ryhon.chatbinds;
+package xyz.jvkeh.chatbinds;
 
 import org.lwjgl.glfw.GLFW;
 
