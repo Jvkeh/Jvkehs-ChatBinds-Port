@@ -33,7 +33,7 @@ public class ChatBinds implements ModInitializer {
             Minecraft.getInstance().player.connection.sendChat(msg);
     }
 
-    public static void registerCommand(String cmd, String title) {
+    public static ChatBind registerCommand(String cmd, String title) {
         ChatBind b = new ChatBind();
         b.cmd = cmd;
         b.title = title;
@@ -50,6 +50,7 @@ public class ChatBinds implements ModInitializer {
             KeyMappingHelper.registerKeyMapping(b.bind);
 
         Binds.add(b);
+        return b;
     }
 
     public static void removeCommand(ChatBind bind) {

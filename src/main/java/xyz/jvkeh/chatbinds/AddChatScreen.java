@@ -149,7 +149,8 @@ public class AddChatScreen extends Screen {
         if (title.isEmpty())
             title = cmd;
 
-        ChatBinds.registerCommand(cmd, title);
+        ChatBinds.ChatBind b = ChatBinds.registerCommand(cmd, title);
+        b.bind.setKey(key);
         ChatBinds.saveConfig();
         onClose();
     }
