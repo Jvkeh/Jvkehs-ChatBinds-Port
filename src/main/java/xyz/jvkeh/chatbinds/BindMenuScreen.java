@@ -99,8 +99,10 @@ public class BindMenuScreen extends Screen implements ModMenuApi {
                 selectedEntry.bind.bind.setKey(InputConstants.getKey(event));
             }
             KeyMapping.resetMapping();
+
             selectedEntry.update();
             selectedEntry = null;
+
             return true;
         }
         return super.keyPressed(event);

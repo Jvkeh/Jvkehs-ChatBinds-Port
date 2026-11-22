@@ -19,7 +19,8 @@ import java.util.Arrays;
 
 public class ChatBinds implements ModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger("chat-binds");
-    protected static KeyMapping.Category USERBINDS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("chatbinds", "user"));
+    static final KeyMapping.Category USERBINDS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("chatbinds", "user"));
+    static final KeyMapping.Category CHATBINDS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("chatbinds", "chatbinds"));
     static ArrayList<ChatBind> Binds = new ArrayList<>();
     static Path configDir = FabricLoader.getInstance().getConfigDir().resolve("chatbinds");
     static Path configFileBinds = configDir.resolve("binds.json");
@@ -27,7 +28,7 @@ public class ChatBinds implements ModInitializer {
     public static void sendMessage(String msg) {
         assert Minecraft.getInstance().player != null;
         if (msg.startsWith("/")) {
-            Minecraft.getInstance().player.connection.sendChat(msg.substring(1));
+            Minecraft.getInstance().player.connection.sendCommand(msg.substring(1));
         } else
             Minecraft.getInstance().player.connection.sendChat(msg);
     }
@@ -39,11 +40,14 @@ public class ChatBinds implements ModInitializer {
         b.bind = new KeyMapping(title,
                 InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), USERBINDS);
 
-
         Minecraft mc = Minecraft.getInstance();
-        ArrayList<KeyMapping> keys = new ArrayList<>(Arrays.asList(mc.options.keyMappings));
-        keys.add(b.bind);
-        mc.options.keyMappings = keys.toArray(new KeyMapping[0]);
+        if (mc.options != null) {
+            ArrayList<KeyMapping> keys = new ArrayList<>();
+            keys.addAll(Arrays.asList(mc.options.keyMappings));
+            keys.add(b.bind);
+            mc.options.keyMappings = keys.toArray(new KeyMapping[0]);
+        } else
+            KeyMappingHelper.registerKeyMapping(b.bind);
 
         Binds.add(b);
     }
@@ -58,6 +62,14 @@ public class ChatBinds implements ModInitializer {
     }
 
     static void loadConfig() {
+        Minecraft mc = Minecraft.getInstance();
+        if (Binds != null && mc.options != null) {
+            ArrayList<KeyMapping> keys = new ArrayList<>();
+            keys.addAll(Arrays.asList(mc.options.keyMappings));
+            for (ChatBind b : Binds)
+                keys.remove(b.bind);
+            mc.options.keyMappings = keys.toArray(new KeyMapping[0]);
+        }
         Binds = new ArrayList<>();
 
         try {
@@ -99,7 +111,6 @@ public class ChatBinds implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        final KeyMapping.Category CHATBINDS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("chatbinds", "chatbinds"));
         KeyMapping menuBind = new KeyMapping("chatbinds.key.menu",
                 InputConstants.Type.KEYBOARD,
                 InputConstants.UNKNOWN.getValue(),
