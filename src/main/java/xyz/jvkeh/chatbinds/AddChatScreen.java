@@ -1,165 +1,161 @@
 package xyz.jvkeh.chatbinds;
 
-import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.gui.widget.TextWidget;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.NonNull;
 
 public class AddChatScreen extends Screen {
-	TextFieldWidget titleBox;
-	TextFieldWidget commandBox;
+    EditBox titleBox;
+    EditBox commandBox;
 
-	ButtonWidget keyButton;
-	ButtonWidget addButton;
-	ButtonWidget cancelButton;
+    Button keyButton;
+    Button addButton;
+    Button cancelButton;
 
-	Screen parent;
+    Screen parent;
 
-	String cmd;
-	InputUtil.Key key = InputUtil.UNKNOWN_KEY;
-	boolean listening;
+    String cmd;
+    InputConstants.Key key = InputConstants.UNKNOWN;
+    boolean listening;
 
-	public AddChatScreen(String cmd_, Screen parent) {
-		super(Text.empty());
-		cmd = cmd_;
-		this.parent = parent;
-	}
+    public AddChatScreen(String cmd_, Screen parent) {
+        super(Component.empty());
+        cmd = cmd_;
+        this.parent = parent;
+    }
 
-	@Override
-	protected void init() {
-		TextWidget titleText = new TextWidget(Text.translatable("chatbinds.addScreen.title"), client.textRenderer);
-		titleText.setX(width / 4);
-		titleText.setY((height / 2) - 64);
-		addDrawable(titleText);
+    @Override
+    protected void init() {
+        StringWidget titleText = new StringWidget(Component.translatable("chatbinds.addScreen.title"), minecraft.font);
+        titleText.setX(width / 4);
+        titleText.setY((height / 2) - 64);
+        addRenderableOnly(titleText);
 
-		titleBox = new TextFieldWidget(client.textRenderer, width / 2, 24, Text.empty());
-		titleBox.setPosition(width / 2 - (titleBox.getWidth() / 2), titleText.getY() + titleText.getHeight());
-		addDrawable(titleBox);
-		addSelectableChild(titleBox);
+        titleBox = new EditBox(minecraft.font, width / 2, 24, Component.empty());
+        titleBox.setPosition(width / 2 - (titleBox.getWidth() / 2), titleText.getY() + titleText.getHeight());
+        addRenderableWidget(titleBox);
 
-		TextWidget commandText = new TextWidget(Text.translatable("chatbinds.addScreen.command"), client.textRenderer);
-		commandText.setX(width / 4);
-		commandText.setY(titleBox.getY() + titleBox.getHeight());
-		addDrawable(commandText);
+        StringWidget commandText = new StringWidget(Component.translatable("chatbinds.addScreen.command"), minecraft.font);
+        commandText.setX(width / 4);
+        commandText.setY(titleBox.getY() + titleBox.getHeight() + 4);
+        addRenderableOnly(commandText);
 
-		commandBox = new TextFieldWidget(client.textRenderer, width / 2, 24, Text.empty());
-		titleBox.setChangedListener(this::onCommandChanged);
-		commandBox.setPosition(width / 2 - (commandBox.getWidth() / 2), commandText.getY() + commandText.getHeight());
-		addDrawable(commandBox);
-		addSelectableChild(commandBox);
-		this.setInitialFocus(commandBox);
+        commandBox = new EditBox(minecraft.font, width / 2, 24, Component.empty());
+        titleBox.setResponder(this::onCommandChanged);
+        commandBox.setPosition(width / 2 - (commandBox.getWidth() / 2), commandText.getY() + commandText.getHeight());
+        addRenderableWidget(commandBox);
+        this.setInitialFocus(commandBox);
 
-		int buttonWidth = 64;
-		int buttonHeight = 16;
+        int buttonWidth = 64;
+        int buttonHeight = 16;
 
-		keyButton = ButtonWidget.builder(Text.empty(), this::onListenButton)
-				.position(commandBox.getX() + commandBox.getWidth() - buttonWidth,
-						commandBox.getY() + commandBox.getHeight() + 6)
-				.size(buttonWidth, buttonHeight)
-				.build();
-		addDrawable(keyButton);
-		addDrawableChild(keyButton);
-		updateKeyText();
+        keyButton = Button.builder(Component.empty(), this::onListenButton)
+                .bounds(commandBox.getX() + commandBox.getWidth() - buttonWidth,
+                        commandBox.getY() + commandBox.getHeight() + 6,
+                        buttonWidth,
+                        buttonHeight)
+                .build();
+        addRenderableWidget(keyButton);
+        updateKeyText();
 
-		TextWidget keyText = new TextWidget(Text.translatable("chatbinds.addScreen.keybind"), client.textRenderer);
-		keyText.setX(keyButton.getX() - keyText.getWidth());
-		keyText.setY(keyButton.getY() + (keyButton.getHeight() / 2) - (keyText.getHeight() / 2));
-		addDrawable(keyText);
+        StringWidget keyText = new StringWidget(Component.translatable("chatbinds.addScreen.keybind"), minecraft.font);
+        keyText.setX(keyButton.getX() - keyText.getWidth() - 2);
+        keyText.setY(keyButton.getY() + (keyButton.getHeight() / 2) - (keyText.getHeight() / 2));
+        addRenderableOnly(keyText);
 
-		addButton = ButtonWidget.builder(Text.translatable("chatbinds.addScreen.add"), this::onAdd)
-				.position(keyButton.getX(),
-						keyButton.getY() + keyButton.getHeight() + 6)
-				.size(buttonWidth, buttonHeight)
-				.build();
-		addDrawable(addButton);
-		addSelectableChild(addButton);
+        addButton = Button.builder(Component.translatable("chatbinds.addScreen.add"), this::onAdd)
+                .bounds(keyButton.getX(),
+                        keyButton.getY() + keyButton.getHeight() + 6,
+                        buttonWidth,
+                        buttonHeight)
+                .build();
+        addRenderableWidget(addButton);
 
-		cancelButton = ButtonWidget.builder(Text.translatable("chatbinds.addScreen.cancel"), this::onCancel)
-				.position(addButton.getX() - buttonWidth,
-						addButton.getY())
-				.size(buttonWidth, buttonHeight)
-				.build();
-		addDrawable(cancelButton);
-		addSelectableChild(cancelButton);
-	}
+        cancelButton = Button.builder(Component.translatable("chatbinds.addScreen.cancel"), this::onCancel)
+                .bounds(addButton.getX() - buttonWidth - 2,
+                        addButton.getY(),
+                        buttonWidth,
+                        buttonHeight)
+                .build();
+        addRenderableWidget(cancelButton);
+    }
 
-	void onListenButton(ButtonWidget b) {
-		listening = true;
-		updateKeyText();
-	}
+    void onListenButton(Button b) {
+        listening = true;
+        updateKeyText();
+    }
 
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (listening) {
-			if (keyCode == GLFW.GLFW_KEY_ESCAPE)
-				key = InputUtil.UNKNOWN_KEY;
-			else
-				key = InputUtil.fromKeyCode(keyCode, scanCode);
+    public boolean keyPressed(@NonNull KeyEvent event) {
+        if (listening) {
+            if (event.isEscape()) {
+                key = InputConstants.UNKNOWN;
+            } else {
+                key = InputConstants.getKey(event);
+            }
+            listening = false;
+            updateKeyText();
+            return true;
+        }
 
-			listening = false;
-			updateKeyText();
-			return true;
-		}
+        if (event.key() == InputConstants.KEY_RETURN || event.key() == InputConstants.KEY_NUMPADENTER) {
+            add();
+            return true;
+        }
+        return super.keyPressed(event);
+    }
 
-		if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-			add();
-			return true;
-		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
-	}
+    @Override
+    public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
+        if (listening) {
+            key = InputConstants.Type.MOUSE.getOrCreate(event.button());
+            listening = false;
+            updateKeyText();
+            return true;
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
 
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		if (listening) {
-			key = InputUtil.Type.MOUSE.createFromCode(button);
-			listening = false;
-			updateKeyText();
-			return true;
-		}
-		return super.mouseClicked(mouseX, mouseY, button);
-	}
+    void updateKeyText() {
+        if (listening)
+            keyButton.setMessage(Component.literal("..."));
+        else
+            keyButton.setMessage(key.getDisplayName());
+    }
 
-	void updateKeyText() {
-		if (listening)
-			keyButton.setMessage(Text.literal("..."));
-		else
-			keyButton.setMessage(key.getLocalizedText());
-	}
+    void onCommandChanged(String c) {
+        cmd = c;
+    }
 
-	void onCommandChanged(String c) {
-		cmd = c;
-	}
+    void onAdd(Button b) {
+        add();
+    }
 
-	void onAdd(ButtonWidget b) {
-		add();
-	}
+    void onCancel(Button b) {
+        onClose();
+    }
 
-	void onCancel(ButtonWidget b) {
-		close();
-	}
+    void add() {
+        String cmd = commandBox.getValue().strip();
+        String title = titleBox.getValue().strip();
 
-	void add() {
-		String cmd = commandBox.getText().strip();
-		String title = titleBox.getText().strip();
+        if (cmd.isEmpty())
+            return;
+        if (title.isEmpty())
+            title = cmd;
 
-		if (cmd.length() == 0)
-			return;
-		if (title.length() == 0)
-			title = cmd;
+        ChatBinds.registerCommand(cmd, title);
+        ChatBinds.saveConfig();
+        onClose();
+    }
 
-		client.options.setKeyCode(ChatBinds.registerCommand(cmd, title).bind, key);
-		KeyBinding.updateKeysByCode();
-
-		ChatBinds.saveConfig();
-		close();
-	}
-
-	@Override
-	public void close() {
-		client.setScreen(parent);
-	}
+    @Override
+    public void onClose() {
+        minecraft.gui.setScreen(parent);
+    }
 }

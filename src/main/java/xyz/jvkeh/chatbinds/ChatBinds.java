@@ -1,142 +1,132 @@
 package xyz.jvkeh.chatbinds;
 
+import com.google.gson.*;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.impl.client.keybinding.KeyBindingRegistryImpl;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public class ChatBinds implements ModInitializer {
-	public static final Logger LOGGER = LoggerFactory.getLogger("chat-binds");
-	static ArrayList<ChatBind> Binds = new ArrayList<>();
+    public static final Logger LOGGER = LoggerFactory.getLogger("chat-binds");
+    protected static KeyMapping.Category USERBINDS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("chatbinds", "user"));
+    static ArrayList<ChatBind> Binds = new ArrayList<>();
+    static Path configDir = FabricLoader.getInstance().getConfigDir().resolve("chatbinds");
+    static Path configFileBinds = configDir.resolve("binds.json");
 
-	@Override
-	public void onInitialize() {
-		KeyBinding menuBind = new KeyBinding("chatbinds.key.menu",
-				InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN,
-				"category.chatbinds");
-		KeyBindingHelper.registerKeyBinding(menuBind);
-		KeyBinding addChatBind = new KeyBinding("chatbinds.key.add_chat",
-				InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN,
-				"category.chatbinds");
-		KeyBindingHelper.registerKeyBinding(addChatBind);
+    public static void sendMessage(String msg) {
+        assert Minecraft.getInstance().player != null;
+        if (msg.startsWith("/")) {
+            Minecraft.getInstance().player.connection.sendChat(msg.substring(1));
+        } else
+            Minecraft.getInstance().player.connection.sendChat(msg);
+    }
 
-		ClientTickEvents.START_CLIENT_TICK.register(client -> {
-			if (menuBind.wasPressed())
-				client.setScreen(new BindMenuScreen(null));
-			if (addChatBind.wasPressed())
-				client.setScreen(new AddChatScreen("", null));
+    public static void registerCommand(String cmd, String title) {
+        ChatBind b = new ChatBind();
+        b.cmd = cmd;
+        b.title = title;
+        b.bind = new KeyMapping(title,
+                InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), USERBINDS);
 
-			for (ChatBind b : Binds)
-				if (b.bind.wasPressed())
-					sendMessage(b.cmd);
-		});
-		loadConfig();
-	}
 
-	public static void sendMessage(String msg) {
-		if (msg.startsWith("/"))
-			MinecraftClient.getInstance().player.networkHandler.sendChatCommand(msg.substring(1));
-		else
-			MinecraftClient.getInstance().player.networkHandler.sendChatMessage(msg);
-	}
+        Minecraft mc = Minecraft.getInstance();
+        ArrayList<KeyMapping> keys = new ArrayList<>(Arrays.asList(mc.options.keyMappings));
+        keys.add(b.bind);
+        mc.options.keyMappings = keys.toArray(new KeyMapping[0]);
 
-	static class ChatBind {
-		public KeyBinding bind;
-		public String cmd;
-		public String title;
-	}
+        Binds.add(b);
+    }
 
-	public static ChatBind registerCommand(String cmd, String title) {
-		ChatBind b = new ChatBind();
-		b.cmd = cmd;
-		b.title = title;
-		b.bind = new KeyBinding(title,
-				InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN,
-				"category.chatbinds.user");
+    public static void removeCommand(ChatBind bind) {
+        Binds.remove(bind);
 
-		MinecraftClient mc = MinecraftClient.getInstance();
-		if (mc.options != null) {
-			KeyBindingRegistryImpl.addCategory(b.bind.getCategory());
-			ArrayList<KeyBinding> keys = new ArrayList<>();
-			keys.addAll(Arrays.asList(mc.options.allKeys));
-			keys.add(b.bind);
-			mc.options.allKeys = keys.toArray(new KeyBinding[0]);
-		} else
-			KeyBindingHelper.registerKeyBinding(b.bind);
+        Minecraft mc = Minecraft.getInstance();
+        ArrayList<KeyMapping> keys = new ArrayList<>(Arrays.asList(mc.options.keyMappings));
+        keys.remove(bind.bind);
+        mc.options.keyMappings = keys.toArray(new KeyMapping[0]);
+    }
 
-		Binds.add(b);
-		return b;
-	}
+    static void loadConfig() {
+        Binds = new ArrayList<>();
 
-	public static void removeCommand(ChatBind bind) {
-		Binds.remove(bind);
+        try {
+            Files.createDirectories(configDir);
+            if (!Files.exists(configFileBinds))
+                return;
 
-		MinecraftClient mc = MinecraftClient.getInstance();
-		ArrayList<KeyBinding> keys = new ArrayList<>();
-		keys.addAll(Arrays.asList(mc.options.allKeys));
-		keys.remove(bind.bind);
-		mc.options.allKeys = keys.toArray(new KeyBinding[0]);
-	}
+            String str = Files.readString(configFileBinds);
+            JsonArray ja = (JsonArray) JsonParser.parseString(str);
 
-	static Path configDir = FabricLoader.getInstance().getConfigDir().resolve("chatbinds");
-	static Path configFileBinds = configDir.resolve("binds.json");
+            for (JsonElement je : ja)
+                if (je instanceof JsonObject jo)
+                    registerCommand(jo.get("cmd").getAsString(), jo.get("title").getAsString());
+        } catch (Exception e) {
+            LOGGER.error("Failed to load config", e);
+        }
+    }
 
-	static void loadConfig() {
-		Binds = new ArrayList<>();
+    static void saveConfig() {
+        JsonArray ja = new JsonArray();
 
-		try {
-			Files.createDirectories(configDir);
-			if (!Files.exists(configFileBinds))
-				return;
+        for (ChatBind b : Binds) {
+            JsonObject jo = new JsonObject();
+            jo.add("cmd", new JsonPrimitive(b.cmd));
+            jo.add("title", new JsonPrimitive(b.title));
 
-			String str = Files.readString(configFileBinds);
-			JsonArray ja = (JsonArray) JsonParser.parseString(str);
+            ja.add(jo);
+        }
 
-			for (JsonElement je : ja)
-				if (je instanceof JsonObject jo)
-					registerCommand(jo.get("cmd").getAsString(), jo.get("title").getAsString());
-		} catch (Exception e) {
-			LOGGER.error("Failed to load config", e);
-		}
-	}
+        String json = new Gson().toJson(ja);
 
-	static void saveConfig() {
-		JsonArray ja = new JsonArray();
+        try {
+            Files.createDirectories(configDir);
+            Files.writeString(configFileBinds, json);
+        } catch (Exception e) {
+            LOGGER.error("Failed to save config", e);
+        }
+    }
 
-		for (ChatBind b : Binds) {
-			JsonObject jo = new JsonObject();
-			jo.add("cmd", new JsonPrimitive(b.cmd));
-			jo.add("title", new JsonPrimitive(b.title));
+    @Override
+    public void onInitialize() {
+        final KeyMapping.Category CHATBINDS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("chatbinds", "chatbinds"));
+        KeyMapping menuBind = new KeyMapping("chatbinds.key.menu",
+                InputConstants.Type.KEYBOARD,
+                InputConstants.UNKNOWN.getValue(),
+                CHATBINDS);
+        KeyMappingHelper.registerKeyMapping(menuBind);
+        KeyMapping addChatBind = new KeyMapping("chatbinds.key.add_chat",
+                InputConstants.Type.KEYBOARD,
+                InputConstants.UNKNOWN.getValue(),
+                CHATBINDS);
+        KeyMappingHelper.registerKeyMapping(addChatBind);
 
-			ja.add(jo);
-		}
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            if (menuBind.consumeClick())
+                client.gui.setScreen(new BindMenuScreen(null));
+            if (addChatBind.consumeClick())
+                client.gui.setScreen(new AddChatScreen("", null));
 
-		String json = new Gson().toJson(ja);
+            for (ChatBind b : Binds)
+                if (b.bind.consumeClick())
+                    sendMessage(b.cmd);
+        });
+        loadConfig();
+    }
 
-		try {
-			Files.createDirectories(configDir);
-			Files.writeString(configFileBinds, json);
-		} catch (Exception e) {
-			LOGGER.error("Failed to save config", e);
-		}
-	}
+    static class ChatBind {
+        public KeyMapping bind;
+        public String cmd;
+        public String title;
+    }
 }

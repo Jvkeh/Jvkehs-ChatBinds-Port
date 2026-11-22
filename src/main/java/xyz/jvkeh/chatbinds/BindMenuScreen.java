@@ -1,204 +1,188 @@
 package xyz.jvkeh.chatbinds;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.terraformersmc.modmenu.api.ModMenuApi;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.option.KeybindsScreen;
-import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextWidget;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-import xyz.ryhon.chatbinds.ChatBinds.ChatBind;
-
-import java.util.List;
-
-import org.lwjgl.glfw.GLFW;
-
-import com.google.common.collect.ImmutableList;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.NonNull;
+import xyz.jvkeh.chatbinds.ChatBinds.ChatBind;
 
 public class BindMenuScreen extends Screen implements ModMenuApi {
-	Screen parent;
-	public BindList.Entry selectedEntry;
+    public BindList.Entry selectedEntry;
+    Screen parent;
+    BindList list;
+    Button doneButton;
+    Button reloadButton;
+    Button addButton;
+    Button removeButton;
 
-	public BindMenuScreen(Screen parent) {
-		super(Text.empty());
-		this.parent = parent;
-	}
+    public BindMenuScreen(Screen parent) {
+        super(Component.empty());
+        this.parent = parent;
+    }
 
-	BindList list;
-	ButtonWidget doneButton;
-	ButtonWidget reloadButton;
-	ButtonWidget addButton;
-	ButtonWidget removeButton;
+    @Override
+    protected void init() {
+        this.clearWidgets();
+        int sideBarW = 128;
+        int sideBarX = width - 128;
+        int padding = 8;
+        int buttonHeight = 32;
 
-	@Override
-	protected void init() {
-		int sideBarW = 128;
-		int sideBarX = width - 128;
-		int padding = 8;
-		int buttonHeight = 32;
+        list = new BindList(this, width - sideBarW, height);
+        list.updateEntries();
+        addRenderableWidget(list);
 
-		list = new BindList(this, client, width - sideBarW, height);
-		list.updateEntries();
-		addDrawableChild(list);
+        doneButton = Button.builder(Component.translatable("chatbinds.menuScreen.done"), this::onClose)
+                .bounds(sideBarX + padding, height - buttonHeight - padding, sideBarW - (padding * 2), buttonHeight)
+                .build();
 
-		doneButton = ButtonWidget.builder(Text.translatable("chatbinds.menuScreen.done"), this::onClose)
-				.position(sideBarX + padding, height - buttonHeight - padding)
-				.size(sideBarW - (padding * 2), buttonHeight)
-				.build();
-		addDrawable(doneButton);
-		addSelectableChild(doneButton);
+        addRenderableWidget(doneButton);
 
-		reloadButton = ButtonWidget.builder(Text.translatable("chatbinds.menuScreen.reload"), this::onReload)
-				.position(doneButton.getX(), doneButton.getY() - buttonHeight - padding)
-				.size(doneButton.getWidth(), buttonHeight)
-				.build();
-		addDrawable(reloadButton);
-		addSelectableChild(reloadButton);
+        reloadButton = Button.builder(Component.translatable("chatbinds.menuScreen.reload"), this::onReload)
+                .bounds(doneButton.getX(), doneButton.getY() - buttonHeight - padding, doneButton.getWidth(), buttonHeight)
+                .build();
+        addRenderableWidget(reloadButton);
 
-		addButton = ButtonWidget.builder(Text.translatable("chatbinds.menuScreen.new"), this::onAdd)
-				.position(reloadButton.getX(), reloadButton.getY() - buttonHeight)
-				.size(reloadButton.getWidth(), buttonHeight)
-				.build();
-		addDrawable(addButton);
-		addSelectableChild(addButton);
+        addButton = Button.builder(Component.translatable("chatbinds.menuScreen.new"), this::onAdd)
+                .bounds(reloadButton.getX(), reloadButton.getY() - buttonHeight, reloadButton.getWidth(), buttonHeight)
+                .build();
+        addRenderableWidget(addButton);
 
-		removeButton = ButtonWidget.builder(Text.translatable("chatbinds.menuScreen.remove"), this::onRemove)
-				.position(addButton.getX(), addButton.getY() - buttonHeight - padding)
-				.size(addButton.getWidth(), buttonHeight)
-				.build();
-		addDrawable(removeButton);
-		addSelectableChild(removeButton);
-	}
+        removeButton = Button.builder(Component.translatable("chatbinds.menuScreen.remove"), this::onRemove)
+                .bounds(addButton.getX(), addButton.getY() - buttonHeight - padding, addButton.getWidth(), buttonHeight)
+                .build();
+        addRenderableWidget(removeButton);
+    }
 
-	void onAdd(ButtonWidget w) {
-		client.setScreen(new AddChatScreen("", this));
-	}
+    void onAdd(Button w) {
+        this.minecraft.gui.setScreen(new AddChatScreen("", this));
+    }
 
-	void onRemove(ButtonWidget w) {
-		BindList.Entry e = list.getSelectedOrNull();
-		if (e != null) {
-			ChatBinds.removeCommand(e.bind);
-			ChatBinds.saveConfig();
-			list.updateEntries();
-		}
-	}
+    void onRemove(Button w) {
+        BindList.Entry e = list.getSelected();
+        if (e != null) {
+            ChatBinds.removeCommand(e.bind);
+            ChatBinds.saveConfig();
+            list.updateEntries();
+        }
+    }
 
-	void onReload(ButtonWidget w) {
-		ChatBinds.loadConfig();
-		init();
-	}
+    void onReload(Button w) {
+        ChatBinds.loadConfig();
+        init();
+    }
 
-	void onClose(ButtonWidget w) {
-		close();
-	}
+    void onClose(Button w) {
+        onClose();
+    }
 
-	@Override
-	public void close() {
-		client.setScreen(parent);
-	}
+    @Override
+    public void onClose() {
+        this.minecraft.gui.setScreen(parent);
+    }
 
-	class BindList extends AlwaysSelectedEntryListWidget<BindList.Entry> {
-		public BindMenuScreen parent;
+    @Override
+    public boolean keyPressed(@NonNull KeyEvent event) {
+        if (selectedEntry != null) {
+            if (event.isEscape()) {
+                selectedEntry.bind.bind.setKey(InputConstants.UNKNOWN);
+            } else {
+                selectedEntry.bind.bind.setKey(InputConstants.getKey(event));
+            }
+            KeyMapping.resetMapping();
+            selectedEntry.update();
+            selectedEntry = null;
+            return true;
+        }
+        return super.keyPressed(event);
+    }
 
-		public BindList(BindMenuScreen parent, MinecraftClient client, int w, int h) {
-			super(client, w, h, 0, 32);
-			this.parent = parent;
-			updateEntries();
-		}
+    @Override
+    public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
+        if (selectedEntry != null) {
+            selectedEntry.bind.bind.setKey(InputConstants.Type.MOUSE.getOrCreate(event.button()));
+            KeyMapping.resetMapping();
+            selectedEntry.update();
+            selectedEntry = null;
+            return true;
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
 
-		public void updateEntries() {
-			this.clearEntries();
-			for (ChatBind b : ChatBinds.Binds) {
-				Entry e = new Entry(client, b, this);
-				addEntry(e);
-				if (getSelectedOrNull() == null)
-					setSelected(e);
-			}
-		}
+    static class BindList extends ObjectSelectionList<BindList.Entry> {
+        public BindMenuScreen parent;
 
-		static class Entry extends AlwaysSelectedEntryListWidget.Entry<Entry> {
-			MinecraftClient client;
-			public ChatBind bind;
-			BindList parent;
-			ButtonWidget keyButton;
+        public BindList(BindMenuScreen parent, int w, int h) {
+            super(parent.minecraft, w, h, 0, 32);
+            this.parent = parent;
+            updateEntries();
+        }
 
-			Entry(MinecraftClient client, ChatBind b, BindList parent) {
-				super();
-				this.client = client;
-				this.bind = b;
-				this.parent = parent;
-				keyButton = ButtonWidget.builder(Text.empty(), this::onButton).build();
-				update();
-			}
+        public void updateEntries() {
+            this.clearEntries();
+            for (ChatBind b : ChatBinds.Binds) {
+                Entry e = new Entry(minecraft, b, this);
+                addEntry(e);
+                setSelected(e);
+            }
+        }
 
-			public void update() {
-				keyButton.setMessage(bind.bind.getBoundKeyLocalizedText());
-			}
+        static class Entry extends ObjectSelectionList.Entry<Entry> implements GuiEventListener {
+            public ChatBind bind;
+            Minecraft client;
+            BindList parent;
+            Button keyButton;
 
-			void onButton(ButtonWidget b) {
-				parent.parent.selectedEntry = this;
-				keyButton.setMessage(Text.literal("..."));
-			}
+            Entry(Minecraft client, ChatBind b, BindList parent) {
+                super();
+                this.client = client;
+                this.bind = b;
+                this.parent = parent;
+                keyButton = Button.builder(Component.empty(), this::onButton).build();
+                update();
+            }
 
-			@Override
-			public Text getNarration() {
-				return Text.empty();
-			}
+            public void update() {
+                keyButton.setMessage(bind.bind.getTranslatedKeyMessage());
+            }
 
-			@Override
-			public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight,
-					int mouseX, int mouseY, boolean hovered, float tickDelta) {
-				context.drawTextWithShadow(client.textRenderer, Text.literal(bind.title), x + 8, y + 8, 0xFFFFFF);
-				context.drawTextWithShadow(client.textRenderer, Text.literal(bind.cmd), x + 8, y + 16, 0x888888);
+            void onButton(Button b) {
+                parent.parent.selectedEntry = this;
+                keyButton.setMessage(Component.literal("..."));
+            }
 
-				keyButton.setX(x + entryWidth - 64 - 4);
-				keyButton.setY(y);
-				keyButton.setWidth(64);
-				keyButton.setHeight(entryHeight);
-				keyButton.render(context, mouseX, mouseY, tickDelta);
-			}
+            @Override
+            public @NonNull Component getNarration() {
+                return Component.empty();
+            }
 
-			@Override
-			public boolean mouseClicked(double mouseX, double mouseY, int button) {
-				parent.setSelected(this);
-				keyButton.mouseClicked(mouseX, mouseY, button);
-				return true;
-			}
-		}
-	}
+            @Override
+            public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
+                parent.setSelected(this);
+                keyButton.mouseClicked(event, doubleClick);
+                return true;
+            }
 
-	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (selectedEntry != null) {
-			if (keyCode == GLFW.GLFW_KEY_ESCAPE)
-				client.options.setKeyCode(selectedEntry.bind.bind, InputUtil.UNKNOWN_KEY);
-			else
-				client.options.setKeyCode(selectedEntry.bind.bind, InputUtil.fromKeyCode(keyCode, scanCode));
-			KeyBinding.updateKeysByCode();
+            @Override
+            public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float a) {
+                graphics.text(client.font, Component.literal(bind.title), getX() + 8, getY() + 6, 0xFFFFFFFF);
+                graphics.text(client.font, Component.literal(bind.cmd), getX() + 8, getY() + 18, 0xFF888888);
 
-			selectedEntry.update();
-			selectedEntry = null;
-
-			return true;
-		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
-	}
-
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		if (selectedEntry != null) {
-			client.options.setKeyCode(selectedEntry.bind.bind, InputUtil.Type.MOUSE.createFromCode(button));
-			KeyBinding.updateKeysByCode();
-			selectedEntry.update();
-			selectedEntry = null;
-			return true;
-		}
-		return super.mouseClicked(mouseX, mouseY, button);
-	}
+                keyButton.setX(getX() + this.getContentWidth() - 64 - 4);
+                keyButton.setY(getY() + 2);
+                keyButton.setWidth(64);
+                keyButton.setHeight(this.getContentHeight());
+                keyButton.extractRenderState(graphics, mouseX, mouseY, a);
+            }
+        }
+    }
 }
